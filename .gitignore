@@ -1,0 +1,28 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Next.js
+.next/
+out/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Uploads
+backend/uploads/
+
+# Docker
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

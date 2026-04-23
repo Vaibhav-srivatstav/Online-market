@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Profile — Online Market</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/" class="navbar-brand">Online<span>Market</span></a>
+  <div class="navbar-center"><div class="search-bar"><button>🔍</button><input type="text" placeholder="Search..."/></div></div>
+  <div class="navbar-actions">
+    <div id="authNav" style="display:flex;gap:0.5rem;"><a href="/login" class="nav-btn">Login</a></div>
+    <div id="userNav" style="display:none;align-items:center;gap:0.5rem;">
+      <span class="nav-btn">👋 <span id="navUserName"></span></span>
+      <a href="/orders" class="nav-btn">Orders</a>
+      <button class="nav-btn" onclick="logout()">Logout</button>
+    </div>
+    <a href="/cart" class="nav-btn" style="position:relative;">🛒<span class="badge" id="cartBadge" style="display:none;">0</span></a>
+  </div>
+</nav>
+
+<div class="section" style="max-width:800px;">
+  <h2 class="section-title" style="margin-bottom:2rem;">My Profile</h2>
+
+  <div id="profileContent"><div class="spinner"></div></div>
+</div>
+
+<footer><p>© 2025 <span>Online Market</span></p></footer>
+<script src="/js/main.js"></script>
+<script>
+async function loadProfile() {
+  if (!currentUser) { window.location.href = '/login'; return; }
+
+  document.getElementById('profileContent').innerHTML = `
+    <div style="display:grid;gap:1.5rem;">
+
+      <!-- Avatar + Info -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:2rem;display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;">
+        <div style="width:72px;height:72px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.75rem;font-weight:700;color:#000;flex-shrink:0;">
+          ${currentUser.name?.[0]?.toUpperCase()}
+        </div>
+        <div style="flex:1;">
+          <h3 style="font-family:'Fraunces',serif;font-size:1.5rem;margin-bottom:0.25rem;">${currentUser.name}</h3>
+          <p style="color:var(--text-muted);margin-bottom:0.5rem;">${currentUser.email}</p>
+          <span style="background:${currentUser.role==='admin'?'rgba(232,197,71,0.15)':'rgba(74,222,128,0.1)'};color:${currentUser.role==='admin'?'var(--accent)':'var(--success)'};padding:0.2rem 0.75rem;border-radius:50px;font-size:0.75rem;font-weight:600;text-transform:uppercase;">${currentUser.role}</span>
+        </div>
+        ${currentUser.role === 'admin' ? `<a href="/admin" class="btn-primary">🔧 Admin Panel</a>` : ''}
+      </div>
+
+      <!-- Quick links -->
+      <div style="display:grid;grid-template-coOnlinens:repeat(auto-fill,minmax(180px,1fr));gap:1rem;">
+        ${[
+          { icon:'📦', label:'My Orders', href:'/orders', desc:'Track your orders' },
+          { icon:'♡', label:'Wishlist', href:'/wishlist', desc:'Saved items' },
+          { icon:'🛒', label:'Cart', href:'/cart', desc:'View your cart' },
+          { icon:'🏠', label:'Home', href:'/', desc:'Continue shopping' },
+        ].map(l => `
+          <a href="${l.href}" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;text-decoration:none;transition:all 0.2s;display:block;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+            <div style="font-size:1.5rem;margin-bottom:0.5rem;">${l.icon}</div>
+            <div style="font-weight:600;color:var(--text);margin-bottom:0.25rem;">${l.label}</div>
+            <div style="color:var(--text-muted);font-size:0.8rem;">${l.desc}</div>
+          </a>`).join('')}
+      </div>
+
+      <!-- Demo coupons hint -->
+      <div style="background:linear-gradient(135deg,rgba(232,197,71,0.08),rgba(255,107,53,0.05));border:1px solid rgba(232,197,71,0.2);border-radius:var(--radius);padding:1.5rem;">
+        <h4 style="font-family:'Fraunces',serif;margin-bottom:0.75rem;color:var(--accent);">🎟️ Available Demo Coupons</h4>
+        <div style="display:flex;flex-wrap:wrap;gap:0.75rem;">
+          ${[
+            {code:'WELCOME10', desc:'10% off (max ₹500)'},
+            {code:'FLAT200', desc:'₹200 off on ₹1000+'},
+            {code:'SALE25', desc:'25% off (max ₹1000)'},
+          ].map(c => `
+            <div style="background:var(--bg3);border:1px dashed var(--border);border-radius:8px;padding:0.6rem 1rem;cursor:pointer;" onclick="navigator.clipboard.writeText('${c.code}');showToast('Copied ${c.code}!','success')">
+              <div style="font-family:monospace;font-weight:700;color:var(--accent);letter-spacing:1px;">${c.code}</div>
+              <div style="font-size:0.75rem;color:var(--text-muted);">${c.desc} · click to copy</div>
+            </div>`).join('')}
+        </div>
+        <button class="btn-outline" style="margin-top:1rem;font-size:0.8rem;" onclick="seedCoupons()">Load Demo Coupons into DB</button>
+      </div>
+
+      <!-- Logout -->
+      <div style="text-align:right;">
+        <button class="btn-outline" onclick="logout()" style="border-color:var(--error);color:var(--error);">Sign Out</button>
+      </div>
+    </div>`;
+}
+
+async function seedCoupons() {
+  try {
+    const r = await api.post('/api/coupons/seed/demo');
+    showToast(r.message, 'success');
+  } catch(e) { showToast(e.message,'error'); }
+}
+
+document.addEventListener('DOMContentLoaded', () => loadUser().then(loadProfile));
+</script>
+</body>
+</html>

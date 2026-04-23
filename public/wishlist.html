@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wishlist — Online Market</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/" class="navbar-brand">Online<span>Market</span></a>
+  <div class="navbar-center"><div class="search-bar"><button>🔍</button><input type="text" placeholder="Search..."/></div></div>
+  <div class="navbar-actions">
+    <div id="authNav" style="display:flex;gap:0.5rem;"><a href="/login" class="nav-btn">Login</a><a href="/register" class="btn-primary">Sign Up</a></div>
+    <div id="userNav" style="display:none;align-items:center;gap:0.5rem;">
+      <span class="nav-btn">👋 <span id="navUserName"></span></span>
+      <a href="/orders" class="nav-btn">Orders</a>
+      <a href="/profile" class="nav-btn">Profile</a>
+      <button class="nav-btn" onclick="logout()">Logout</button>
+    </div>
+    <a href="/wishlist" class="nav-btn active">♡</a>
+    <a href="/cart" class="nav-btn" style="position:relative;">🛒<span class="badge" id="cartBadge" style="display:none;">0</span></a>
+  </div>
+</nav>
+
+<div class="section">
+  <div class="section-header">
+    <h2 class="section-title">My Wishlist</h2>
+    <span id="wishCount" style="color:var(--text-muted);font-size:0.9rem;"></span>
+  </div>
+  <div id="wishlistContent"><div class="spinner"></div></div>
+</div>
+
+<footer><p>© 2025 <span>Online Market</span></p></footer>
+<script src="/js/main.js"></script>
+<script>
+async function loadWishlist() {
+  if (!currentUser) {
+    document.getElementById('wishlistContent').innerHTML = `<div class="empty-state"><div class="empty-state-icon">🔒</div><h3>Please Login</h3><p>Login to view your wishlist</p><a href="/login" class="btn-primary">Login</a></div>`;
+    return;
+  }
+  try {
+    const products = await api.get('/api/wishlist');
+    document.getElementById('wishCount').textContent = `${products.length} item${products.length !== 1 ? 's' : ''}`;
+    const grid = document.getElementById('wishlistContent');
+    if (!products.length) {
+      grid.innerHTML = `<div class="empty-state"><div class="empty-state-icon">♡</div><h3>Your wishlist is empty</h3><p>Browse products and heart the ones you love</p><a href="/" class="btn-primary">Explore Products</a></div>`;
+      return;
+    }
+    grid.innerHTML = `<div class="product-grid">${products.map(p => {
+      const disc = getDiscount(p.price, p.originalPrice);
+      return `<div class="product-card">
+        <div style="position:absolute;top:0.75rem;right:0.75rem;z-index:2;">
+          <button onclick="removeWish('${p._id}')" style="background:rgba(0,0,0,0.5);border:none;cursor:pointer;color:#f87171;font-size:1.1rem;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;" title="Remove from wishlist">♥</button>
+        </div>
+        ${disc ? `<span class="product-badge">-${disc}%</span>` : ''}
+        <img src="${p.image||''}" alt="${p.name}" class="product-img" onclick="window.location.href='/product/${p._id}'" style="cursor:pointer;" onerror="this.src='https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=600'"/>
+        <div class="product-info" onclick="window.location.href='/product/${p._id}'" style="cursor:pointer;">
+          <div class="product-category">${p.category}</div>
+          <div class="product-name">${p.name}</div>
+          <div class="product-rating"><span class="stars">${renderStars(p.rating||0)}</span> ${p.rating?p.rating.toFixed(1):'—'} (${p.numReviews||0})</div>
+          <div class="product-price">
+            <span class="price-current">${formatPrice(p.price)}</span>
+            ${p.originalPrice?`<span class="price-original">${formatPrice(p.originalPrice)}</span>`:''}
+          </div>
+        </div>
+        <div class="product-actions">
+          <button class="btn-cart" onclick="addToCart('${p._id}')">+ Add to Cart</button>
+        </div>
+      </div>`;
+    }).join('')}</div>`;
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function removeWish(productId) {
+  try {
+    await api.post('/api/wishlist/toggle', { productId });
+    showToast('Removed from wishlist', 'info');
+    loadWishlist();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+document.addEventListener('DOMContentLoaded', () => loadUser().then(loadWishlist));
+</script>
+</body>
+</html>

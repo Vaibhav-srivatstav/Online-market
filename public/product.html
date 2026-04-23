@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Product — Online Market</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/" class="navbar-brand">Online<span>Market</span></a>
+  <div class="navbar-center"><div class="search-bar"><button>🔍</button><input type="text" placeholder="Search products..."/></div></div>
+  <div class="navbar-actions">
+    <div id="authNav" style="display:flex;gap:0.5rem;"><a href="/login" class="nav-btn">Login</a><a href="/register" class="btn-primary">Sign Up</a></div>
+    <div id="userNav" style="display:none;align-items:center;gap:0.5rem;"><span class="nav-btn">👋 <span id="navUserName"></span></span><a href="/orders" class="nav-btn">Orders</a><button class="nav-btn" onclick="logout()">Logout</button></div>
+    <a href="/cart" class="nav-btn" style="position:relative;">🛒<span class="badge" id="cartBadge" style="display:none;">0</span></a>
+  </div>
+</nav>
+
+<div class="section">
+  <a href="/" style="color:var(--text-muted);text-decoration:none;font-size:0.9rem;display:inline-flex;align-items:center;gap:0.4rem;margin-bottom:2rem;">← Back to Products</a>
+  <div id="productDetail"><div class="spinner"></div></div>
+
+  <!-- Reviews -->
+  <div id="reviewsSection" style="max-width:1100px;margin:3rem auto 0;display:none;">
+    <h3 class="section-title" style="margin-bottom:1.5rem;">Customer Reviews</h3>
+    <div id="reviewsList"></div>
+    <div id="reviewForm" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-top:1.5rem;">
+      <h4 style="margin-bottom:1rem;font-family:'Fraunces',serif;">Write a Review</h4>
+      <div class="form-group">
+        <label class="form-label">Rating</label>
+        <div id="starRating" style="display:flex;gap:0.5rem;font-size:1.5rem;cursor:pointer;">
+          <span onclick="setRating(1)" class="star">☆</span><span onclick="setRating(2)" class="star">☆</span>
+          <span onclick="setRating(3)" class="star">☆</span><span onclick="setRating(4)" class="star">☆</span>
+          <span onclick="setRating(5)" class="star">☆</span>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">Comment</label><textarea id="reviewComment" class="form-input" rows="3" placeholder="Share your experience..."></textarea></div>
+      <button class="btn-primary" onclick="submitReview()">Submit Review</button>
+    </div>
+  </div>
+</div>
+
+<footer><p>© 2025 <span>Online Market</span></p></footer>
+
+<script src="/js/main.js"></script>
+<script>
+const productId = window.location.pathname.split('/').pop();
+let selectedRating = 0;
+let selectedQty = 1;
+
+function setRating(r) {
+  selectedRating = r;
+  document.querySelectorAll('.star').forEach((s, i) => { s.textContent = i < r ? '★' : '☆'; s.style.color = i < r ? 'var(--accent)' : 'var(--text-muted)'; });
+}
+
+async function loadProduct() {
+  try {
+    const p = await api.get(`/api/products/${productId}`);
+    const disc = getDiscount(p.price, p.originalPrice);
+
+    document.title = `${p.name} — Online Market`;
+    document.getElementById('productDetail').innerHTML = `
+      <div class="product-detail-grid">
+        <div>
+          <img src="${p.image || 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=800'}" alt="${p.name}" class="product-detail-img" onerror="this.src='https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=800'"/>
+        </div>
+        <div>
+          <div class="product-detail-category">${p.category}${p.brand ? ' · ' + p.brand : ''}</div>
+          <h1 class="product-detail-name">${p.name}</h1>
+          <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;">
+            <span class="stars" style="font-size:1.1rem;">${renderStars(p.rating||0)}</span>
+            <span style="color:var(--text-muted);font-size:0.9rem;">${p.rating ? p.rating.toFixed(1) : 'No reviews'} (${p.numReviews} reviews)</span>
+          </div>
+          <div style="display:flex;align-items:baseline;gap:1rem;margin-bottom:1rem;">
+            <div class="product-detail-price">${formatPrice(p.price)}</div>
+            ${p.originalPrice ? `<span style="color:var(--text-dim);text-decoration:line-through;font-size:1.1rem;">${formatPrice(p.originalPrice)}</span>` : ''}
+            ${disc ? `<span style="color:var(--success);font-weight:600;">${disc}% off</span>` : ''}
+          </div>
+          <span class="stock-tag ${p.stock > 0 ? 'in-stock' : 'out-stock'}">${p.stock > 0 ? `✓ In Stock (${p.stock} available)` : '✗ Out of Stock'}</span>
+          <p class="product-detail-desc">${p.description}</p>
+          ${p.tags?.length ? `<div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:1.5rem;">${p.tags.map(t => `<span style="background:var(--bg3);border:1px solid var(--border);padding:0.25rem 0.75rem;border-radius:50px;font-size:0.8rem;color:var(--text-muted);">#${t}</span>`).join('')}</div>` : ''}
+          <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;">
+            <span style="color:var(--text-muted);font-size:0.9rem;">Qty:</span>
+            <div class="qty-controls">
+              <button class="qty-btn" onclick="changeQty(-1)">−</button>
+              <span class="qty-num" id="qtyDisplay">1</span>
+              <button class="qty-btn" onclick="changeQty(1)">+</button>
+            </div>
+          </div>
+          <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+            <button class="btn-primary" style="flex:1;" onclick="addToCart('${p._id}', selectedQty)" ${p.stock<=0?'disabled':''}>🛒 Add to Cart</button>
+            <button id="wishBtn" onclick="toggleWish('${p._id}')" style="background:var(--bg3);border:1px solid var(--border);color:var(--text-muted);cursor:pointer;padding:0.6rem 1rem;border-radius:8px;font-size:1.1rem;transition:all 0.2s;" title="Add to Wishlist">♡</button>
+          </div>
+        </div>
+      </div>`;
+
+    // Reviews section
+    document.getElementById('reviewsSection').style.display = 'block';
+    if (currentUser) document.getElementById('reviewForm').style.display = 'block';
+
+    document.getElementById('reviewsList').innerHTML = p.reviews.length
+      ? p.reviews.map(r => `
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+              <div style="display:flex;align-items:center;gap:0.75rem;">
+                <div style="width:36px;height:36px;background:var(--accent);color:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.9rem;">${r.name?.[0]?.toUpperCase()}</div>
+                <div><div style="font-weight:600;font-size:0.9rem;">${r.name}</div><div style="color:var(--text-muted);font-size:0.75rem;">${new Date(r.createdAt).toLocaleDateString()}</div></div>
+              </div>
+              <span class="stars">${renderStars(r.rating)}</span>
+            </div>
+            <p style="color:var(--text-muted);font-size:0.9rem;">${r.comment}</p>
+          </div>`)
+        .join('')
+      : '<p style="color:var(--text-muted);">No reviews yet. Be the first to review!</p>';
+  } catch (err) {
+    document.getElementById('productDetail').innerHTML = `<div class="empty-state"><p style="color:var(--error)">${err.message}</p></div>`;
+  }
+}
+
+function changeQty(delta) {
+  selectedQty = Math.max(1, selectedQty + delta);
+  document.getElementById('qtyDisplay').textContent = selectedQty;
+}
+
+async function submitReview() {
+  if (!selectedRating) return showToast('Please select a rating', 'error');
+  const comment = document.getElementById('reviewComment').value.trim();
+  if (!comment) return showToast('Please write a comment', 'error');
+  try {
+    await api.post(`/api/products/${productId}/reviews`, { rating: selectedRating, comment });
+    showToast('Review submitted!', 'success');
+    loadProduct();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function checkWishlist() {
+  if (!currentUser) return;
+  try {
+    const r = await api.get(`/api/wishlist/check/${productId}`);
+    const btn = document.getElementById('wishBtn');
+    if (btn && r.wishlisted) { btn.textContent = '♥'; btn.style.color = 'var(--accent2)'; }
+  } catch {}
+}
+
+async function toggleWish(pid) {
+  if (!currentUser) { showToast('Please login to use wishlist', 'error'); return; }
+  try {
+    const r = await api.post('/api/wishlist/toggle', { productId: pid });
+    const btn = document.getElementById('wishBtn');
+    if (btn) { btn.textContent = r.added ? '♥' : '♡'; btn.style.color = r.added ? 'var(--accent2)' : 'var(--text-muted)'; }
+    showToast(r.added ? 'Added to wishlist ♥' : 'Removed from wishlist', r.added ? 'success' : 'info');
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+document.addEventListener('DOMContentLoaded', () => { loadUser().then(() => { loadProduct(); checkWishlist(); }); });
+</script>
+</body>
+</html>

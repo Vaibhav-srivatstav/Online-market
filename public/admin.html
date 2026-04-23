@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin — Online Market</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    .admin-layout { display: grid; grid-template-coOnlinens: 220px 1fr; min-height: calc(100vh - 68px); }
+    .sidebar { background: var(--bg2); border-right: 1px solid var(--border); padding: 1.5rem 0; position: sticky; top: 68px; height: calc(100vh - 68px); overflow-y: auto; }
+    .sidebar-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.7rem 1.25rem; color: var(--text-muted); cursor: pointer; font-size: 0.9rem; transition: all 0.2s; text-decoration: none; border-left: 3px solid transparent; }
+    .sidebar-item:hover { color: var(--text); background: var(--bg3); }
+    .sidebar-item.active { color: var(--accent); background: rgba(232,197,71,0.06); border-left-color: var(--accent); font-weight: 600; }
+    .admin-main { padding: 2rem; overflow-y: auto; }
+    .stat-grid { display: grid; grid-template-coOnlinens: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; }
+    .stat-value { font-family: 'Fraunces', serif; font-size: 2rem; font-weight: 700; }
+    .stat-label { color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem; }
+    .stat-change { font-size: 0.75rem; margin-top: 0.5rem; color: var(--success); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th { text-align: left; padding: 0.75rem 1rem; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); font-weight: 600; }
+    .data-table td { padding: 0.85rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.875rem; vertical-align: middle; }
+    .data-table tr:hover td { background: var(--bg3); }
+    .chart-grid { display: grid; grid-template-coOnlinens: 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+    .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; }
+    .chart-title { font-family: 'Fraunces', serif; font-size: 1.1rem; margin-bottom: 1rem; }
+    @media (max-width: 768px) {
+      .admin-layout { grid-template-coOnlinens: 1fr; }
+      .sidebar { position: static; height: auto; display: flex; flex-wrap: wrap; border-right: none; border-bottom: 1px solid var(--border); }
+      .chart-grid { grid-template-coOnlinens: 1fr; }
+    }
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; padding: 1rem; }
+    .modal-overlay.open { display: flex; }
+    .modal-box { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 2rem; width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; }
+    select.status-select { background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 0.3rem 0.6rem; border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/" class="navbar-brand">Online<span>Market</span> <span style="font-size:0.7rem;background:var(--accent);color:#000;padding:0.1rem 0.4rem;border-radius:4px;margin-left:0.5rem;font-family:'DM Sans',sans-serif;font-weight:700;">ADMIN</span></a>
+  <div class="navbar-actions">
+    <a href="/" class="nav-btn">← Store</a>
+    <span class="nav-btn">👤 <span id="navUserName"></span></span>
+    <button class="nav-btn" onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<div class="admin-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div style="padding: 0 1.25rem 1rem; color: var(--text-dim); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">Dashboard</div>
+    <a class="sidebar-item active" onclick="showTab('overview')">📊 Overview</a>
+    <a class="sidebar-item" onclick="showTab('products')">📦 Products</a>
+    <a class="sidebar-item" onclick="showTab('orders')">🧾 Orders</a>
+    <a class="sidebar-item" onclick="showTab('users')">👥 Users</a>
+    <a class="sidebar-item" onclick="showTab('coupons')">🎟️ Coupons</a>
+    <div style="padding: 1rem 1.25rem 0.5rem; color: var(--text-dim); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; margin-top: 1rem;">Quick Actions</div>
+    <a class="sidebar-item" onclick="seedDemoData()">⚡ Seed Demo Data</a>
+    <a class="sidebar-item" href="/profile">👤 My Profile</a>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="admin-main">
+
+    <!-- OVERVIEW -->
+    <div id="tab-overview" class="tab-content active">
+      <h2 style="font-family:'Fraunces',serif;font-size:1.75rem;margin-bottom:1.5rem;">Dashboard Overview</h2>
+      <div class="stat-grid" id="statsGrid"><div class="spinner"></div></div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-title">Revenue — Last 7 Days</div>
+          <canvas id="revenueChart" height="120"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Products by Category</div>
+          <canvas id="categoryChart" height="120"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title" style="margin-bottom:1rem;">Recent Orders</div>
+        <div id="recentOrdersTable"></div>
+      </div>
+    </div>
+
+    <!-- PRODUCTS -->
+    <div id="tab-products" class="tab-content">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
+        <h2 style="font-family:'Fraunces',serif;font-size:1.75rem;">Products</h2>
+        <div style="display:flex;gap:0.75rem;">
+          <button class="btn-outline" onclick="seedDemoData()" style="font-size:0.85rem;">⚡ Seed Demo</button>
+          <button class="btn-primary" onclick="openProductModal()">+ Add Product</button>
+        </div>
+      </div>
+      <div id="productsTable"><div class="spinner"></div></div>
+    </div>
+
+    <!-- ORDERS -->
+    <div id="tab-orders" class="tab-content">
+      <h2 style="font-family:'Fraunces',serif;font-size:1.75rem;margin-bottom:1.5rem;">All Orders</h2>
+      <div id="ordersTable"><div class="spinner"></div></div>
+    </div>
+
+    <!-- USERS -->
+    <div id="tab-users" class="tab-content">
+      <h2 style="font-family:'Fraunces',serif;font-size:1.75rem;margin-bottom:1.5rem;">Users</h2>
+      <div id="usersTable"><div class="spinner"></div></div>
+    </div>
+
+    <!-- COUPONS -->
+    <div id="tab-coupons" class="tab-content">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
+        <h2 style="font-family:'Fraunces',serif;font-size:1.75rem;">Coupons</h2>
+        <div style="display:flex;gap:0.75rem;">
+          <button class="btn-outline" onclick="seedDemoCoupons()" style="font-size:0.85rem;">⚡ Seed Demo</button>
+          <button class="btn-primary" onclick="openCouponModal()">+ New Coupon</button>
+        </div>
+      </div>
+      <div id="couponsTable"><div class="spinner"></div></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Product Modal -->
+<div class="modal-overlay" id="productModal">
+  <div class="modal-box">
+    <h3 style="font-family:'Fraunces',serif;font-size:1.4rem;margin-bottom:1.5rem;" id="productModalTitle">Add Product</h3>
+    <input type="hidden" id="editProductId"/>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Name *</label><input type="text" id="pName" class="form-input" placeholder="Product name"/></div>
+      <div class="form-group"><label class="form-label">Category *</label><input type="text" id="pCategory" class="form-input" placeholder="Electronics"/></div>
+    </div>
+    <div class="form-group"><label class="form-label">Description *</label><textarea id="pDesc" class="form-input" rows="3" placeholder="Product description..."></textarea></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Price (₹) *</label><input type="number" id="pPrice" class="form-input" placeholder="999"/></div>
+      <div class="form-group"><label class="form-label">Original Price (₹)</label><input type="number" id="pOrigPrice" class="form-input" placeholder="1999"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Stock *</label><input type="number" id="pStock" class="form-input" placeholder="50"/></div>
+      <div class="form-group"><label class="form-label">Brand</label><input type="text" id="pBrand" class="form-input" placeholder="Brand name"/></div>
+    </div>
+    <div class="form-group"><label class="form-label">Image URL</label><input type="text" id="pImage" class="form-input" placeholder="https://..."/></div>
+    <div class="form-group"><label class="form-label">Tags (comma separated)</label><input type="text" id="pTags" class="form-input" placeholder="tag1, tag2"/></div>
+    <div class="form-group" style="display:flex;align-items:center;gap:0.75rem;">
+      <input type="checkbox" id="pFeatured" style="width:16px;height:16px;accent-color:var(--accent);"/>
+      <label for="pFeatured" class="form-label" style="margin:0;">Featured product</label>
+    </div>
+    <div style="display:flex;gap:1rem;margin-top:1.5rem;">
+      <button class="btn-outline" onclick="closeProductModal()" style="flex:1;">Cancel</button>
+      <button class="btn-primary" onclick="saveProduct()" style="flex:2;" id="saveProductBtn">Save Product</button>
+    </div>
+  </div>
+</div>
+
+<!-- Coupon Modal -->
+<div class="modal-overlay" id="couponModal">
+  <div class="modal-box">
+    <h3 style="font-family:'Fraunces',serif;font-size:1.4rem;margin-bottom:1.5rem;">New Coupon</h3>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Code *</label><input type="text" id="cCode" class="form-input" placeholder="SAVE20" style="text-transform:uppercase;"/></div>
+      <div class="form-group"><label class="form-label">Type</label>
+        <select id="cType" class="form-input"><option value="percent">Percentage (%)</option><option value="fixed">Fixed (₹)</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Value *</label><input type="number" id="cValue" class="form-input" placeholder="10"/></div>
+      <div class="form-group"><label class="form-label">Max Discount (₹)</label><input type="number" id="cMaxDisc" class="form-input" placeholder="500"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Min Order (₹)</label><input type="number" id="cMinOrder" class="form-input" placeholder="0"/></div>
+      <div class="form-group"><label class="form-label">Usage Limit</label><input type="number" id="cLimit" class="form-input" placeholder="100"/></div>
+    </div>
+    <div class="form-group"><label class="form-label">Valid Until *</label><input type="date" id="cValidUntil" class="form-input"/></div>
+    <div style="display:flex;gap:1rem;margin-top:1.5rem;">
+      <button class="btn-outline" onclick="closeCouponModal()" style="flex:1;">Cancel</button>
+      <button class="btn-primary" onclick="saveCoupon()" style="flex:2;">Create Coupon</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/main.js"></script>
+<script>
+let revenueChart, categoryChart;
+
+// TAB SWITCHING
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+
+  const loaders = { products: loadProducts, orders: loadOrders, users: loadUsers, coupons: loadCoupons };
+  if (loaders[name]) loaders[name]();
+}
+
+// OVERVIEW
+async function loadOverview() {
+  try {
+    const stats = await api.get('/api/admin/stats');
+
+    document.getElementById('statsGrid').innerHTML = [
+      { label: 'Total Revenue', value: formatPrice(stats.revenue), icon: '₹', color: 'var(--accent)' },
+      { label: 'Total Orders', value: stats.totalOrders, icon: '📦', color: 'var(--text)' },
+      { label: 'Pending Orders', value: stats.pending, icon: '⏳', color: '#60a5fa' },
+      { label: 'Delivered', value: stats.delivered, icon: '✓', color: 'var(--success)' },
+      { label: 'Total Products', value: stats.totalProducts, icon: '🏷️', color: 'var(--text)' },
+      { label: 'Total Users', value: stats.totalUsers, icon: '👥', color: '#c084fc' },
+    ].map(s => `
+      <div class="stat-card">
+        <div style="font-size:1.5rem;margin-bottom:0.5rem;">${s.icon}</div>
+        <div class="stat-value" style="color:${s.color};">${s.value}</div>
+        <div class="stat-label">${s.label}</div>
+      </div>`).join('');
+
+    // Revenue chart
+    const ctx1 = document.getElementById('revenueChart').getContext('2d');
+    if (revenueChart) revenueChart.destroy();
+    revenueChart = new Chart(ctx1, {
+      type: 'bar',
+      data: {
+        labels: stats.last7.map(d => d.date),
+        datasets: [{
+          label: 'Revenue (₹)',
+          data: stats.last7.map(d => d.revenue),
+          backgroundColor: 'rgba(232,197,71,0.3)',
+          borderColor: '#e8c547',
+          borderWidth: 2,
+          borderRadius: 6,
+        }]
+      },
+      options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888899' } }, y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888899', callback: v => '₹' + v.toLocaleString() } } } }
+    });
+
+    // Category doughnut
+    const ctx2 = document.getElementById('categoryChart').getContext('2d');
+    if (categoryChart) categoryChart.destroy();
+    const catColors = ['#e8c547','#ff6b35','#4ade80','#60a5fa','#c084fc','#fb7185'];
+    categoryChart = new Chart(ctx2, {
+      type: 'doughnut',
+      data: {
+        labels: Object.keys(stats.categories),
+        datasets: [{ data: Object.values(stats.categories), backgroundColor: catColors, borderWidth: 0 }]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#888899', padding: 12, font: { size: 11 } } } }, cutout: '65%' }
+    });
+
+    // Recent orders
+    const orders = await api.get('/api/admin/recent-orders');
+    document.getElementById('recentOrdersTable').innerHTML = ordersTableHTML(orders.slice(0, 8));
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+function ordersTableHTML(orders) {
+  if (!orders.length) return '<p style="color:var(--text-muted);padding:1rem;">No orders yet.</p>';
+  return `<div style="overflow-x:auto;"><table class="data-table">
+    <thead><tr><th>Order ID</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+    <tbody>${orders.map(o => `
+      <tr>
+        <td><span style="font-family:monospace;color:var(--accent);">#${o._id.slice(-6).toUpperCase()}</span></td>
+        <td>${o.user?.name || '—'}<br><span style="color:var(--text-dim);font-size:0.75rem;">${o.user?.email||''}</span></td>
+        <td>${o.items?.length} item(s)</td>
+        <td style="font-weight:700;">${formatPrice(o.total)}</td>
+        <td><span class="status-badge status-${o.orderStatus}">${o.orderStatus}</span></td>
+        <td style="color:var(--text-muted);font-size:0.8rem;">${new Date(o.createdAt).toLocaleDateString()}</td>
+        <td>
+          <select class="status-select" onchange="updateOrderStatus('${o._id}', this.value)">
+            ${['placed','confirmed','shipped','delivered','cancelled'].map(s => `<option value="${s}" ${s===o.orderStatus?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </td>
+      </tr>`).join('')}
+    </tbody></table></div>`;
+}
+
+// PRODUCTS TABLE
+async function loadProducts() {
+  try {
+    const { products } = await api.get('/api/products?limit=100');
+    document.getElementById('productsTable').innerHTML = `
+      <div style="overflow-x:auto;"><table class="data-table">
+        <thead><tr><th>Image</th><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Rating</th><th>Featured</th><th>Actions</th></tr></thead>
+        <tbody>${products.map(p => `
+          <tr>
+            <td><img src="${p.image||''}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;background:var(--bg3);" onerror="this.style.background='var(--bg3)'"/></td>
+            <td style="max-width:200px;"><div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div><div style="color:var(--text-dim);font-size:0.75rem;">${p.brand||''}</div></td>
+            <td><span style="background:var(--bg3);padding:0.2rem 0.5rem;border-radius:4px;font-size:0.75rem;">${p.category}</span></td>
+            <td><div style="font-weight:700;">${formatPrice(p.price)}</div>${p.originalPrice?`<div style="color:var(--text-dim);font-size:0.75rem;text-decoration:line-through;">${formatPrice(p.originalPrice)}</div>`:''}</td>
+            <td><span style="color:${p.stock>10?'var(--success)':p.stock>0?'var(--accent)':'var(--error)'};">${p.stock}</span></td>
+            <td>${p.rating?p.rating.toFixed(1):'—'} ⭐</td>
+            <td>${p.featured?'<span style="color:var(--accent);">★ Yes</span>':'<span style="color:var(--text-dim);">No</span>'}</td>
+            <td>
+              <div style="display:flex;gap:0.5rem;">
+                <button onclick="editProduct(${JSON.stringify(p).replace(/"/g,'&quot;')})" style="background:none;border:1px solid var(--border);color:var(--text);padding:0.3rem 0.6rem;border-radius:6px;cursor:pointer;font-size:0.75rem;">Edit</button>
+                <button onclick="deleteProduct('${p._id}')" style="background:none;border:1px solid var(--error);color:var(--error);padding:0.3rem 0.6rem;border-radius:6px;cursor:pointer;font-size:0.75rem;">Del</button>
+              </div>
+            </td>
+          </tr>`).join('')}
+        </tbody></table></div>`;
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// ORDERS
+async function loadOrders() {
+  try {
+    const orders = await api.get('/api/orders');
+    document.getElementById('ordersTable').innerHTML = ordersTableHTML(orders);
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function updateOrderStatus(id, status) {
+  try {
+    await api.request('PATCH', `/api/admin/orders/${id}`, { status });
+    showToast('Order status updated', 'success');
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// USERS
+async function loadUsers() {
+  try {
+    const users = await api.get('/api/admin/users');
+    document.getElementById('usersTable').innerHTML = `
+      <div style="overflow-x:auto;"><table class="data-table">
+        <thead><tr><th>Avatar</th><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th>Cart Items</th></tr></thead>
+        <tbody>${users.map(u => `
+          <tr>
+            <td><div style="width:36px;height:36px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#000;">${u.name?.[0]?.toUpperCase()}</div></td>
+            <td style="font-weight:500;">${u.name}</td>
+            <td style="color:var(--text-muted);">${u.email}</td>
+            <td><span style="background:${u.role==='admin'?'rgba(232,197,71,0.15)':'rgba(74,222,128,0.1)'};color:${u.role==='admin'?'var(--accent)':'var(--success)'};padding:0.2rem 0.6rem;border-radius:50px;font-size:0.75rem;font-weight:600;">${u.role}</span></td>
+            <td style="color:var(--text-muted);font-size:0.85rem;">${new Date(u.createdAt).toLocaleDateString()}</td>
+            <td>${u.cart?.length || 0} items</td>
+          </tr>`).join('')}
+        </tbody></table></div>`;
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// COUPONS
+async function loadCoupons() {
+  try {
+    const coupons = await api.get('/api/coupons');
+    document.getElementById('couponsTable').innerHTML = `
+      <div style="overflow-x:auto;"><table class="data-table">
+        <thead><tr><th>Code</th><th>Type</th><th>Value</th><th>Min Order</th><th>Used</th><th>Valid Until</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody>${coupons.map(c => `
+          <tr>
+            <td><span style="font-family:monospace;font-weight:700;color:var(--accent);letter-spacing:1px;">${c.code}</span></td>
+            <td>${c.type === 'percent' ? '%' : '₹'} off</td>
+            <td style="font-weight:700;">${c.type==='percent'?c.value+'%':'₹'+c.value}${c.maxDiscount?` <span style="color:var(--text-dim);font-size:0.75rem;">(max ₹${c.maxDiscount})</span>`:''}</td>
+            <td>${c.minOrder ? formatPrice(c.minOrder) : '—'}</td>
+            <td>${c.usedCount}/${c.usageLimit}</td>
+            <td style="font-size:0.85rem;color:var(--text-muted);">${new Date(c.validUntil).toLocaleDateString()}</td>
+            <td><span style="background:${c.active?'rgba(74,222,128,0.1)':'rgba(248,113,113,0.1)'};color:${c.active?'var(--success)':'var(--error)'};padding:0.2rem 0.6rem;border-radius:50px;font-size:0.75rem;font-weight:600;">${c.active?'Active':'Inactive'}</span></td>
+            <td><button onclick="toggleCoupon('${c._id}')" style="background:none;border:1px solid var(--border);color:var(--text);padding:0.3rem 0.6rem;border-radius:6px;cursor:pointer;font-size:0.75rem;">${c.active?'Disable':'Enable'}</button></td>
+          </tr>`).join('')}
+        </tbody></table></div>`;
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function toggleCoupon(id) {
+  try {
+    await api.request('PATCH', `/api/coupons/${id}/toggle`);
+    showToast('Coupon updated', 'success');
+    loadCoupons();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// PRODUCT MODAL
+function openProductModal() {
+  document.getElementById('productModalTitle').textContent = 'Add Product';
+  document.getElementById('editProductId').value = '';
+  ['pName','pCategory','pDesc','pPrice','pOrigPrice','pStock','pBrand','pImage','pTags'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('pFeatured').checked = false;
+  document.getElementById('saveProductBtn').textContent = 'Save Product';
+  document.getElementById('productModal').classList.add('open');
+}
+
+function editProduct(p) {
+  document.getElementById('productModalTitle').textContent = 'Edit Product';
+  document.getElementById('editProductId').value = p._id;
+  document.getElementById('pName').value = p.name;
+  document.getElementById('pCategory').value = p.category;
+  document.getElementById('pDesc').value = p.description;
+  document.getElementById('pPrice').value = p.price;
+  document.getElementById('pOrigPrice').value = p.originalPrice || '';
+  document.getElementById('pStock').value = p.stock;
+  document.getElementById('pBrand').value = p.brand || '';
+  document.getElementById('pImage').value = p.image || '';
+  document.getElementById('pTags').value = (p.tags || []).join(', ');
+  document.getElementById('pFeatured').checked = !!p.featured;
+  document.getElementById('saveProductBtn').textContent = 'Update Product';
+  document.getElementById('productModal').classList.add('open');
+}
+
+function closeProductModal() { document.getElementById('productModal').classList.remove('open'); }
+
+async function saveProduct() {
+  const id = document.getElementById('editProductId').value;
+  const body = {
+    name: document.getElementById('pName').value.trim(),
+    category: document.getElementById('pCategory').value.trim(),
+    description: document.getElementById('pDesc').value.trim(),
+    price: Number(document.getElementById('pPrice').value),
+    originalPrice: Number(document.getElementById('pOrigPrice').value) || undefined,
+    stock: Number(document.getElementById('pStock').value),
+    brand: document.getElementById('pBrand').value.trim(),
+    image: document.getElementById('pImage').value.trim(),
+    tags: document.getElementById('pTags').value.split(',').map(t => t.trim()).filter(Boolean),
+    featured: document.getElementById('pFeatured').checked,
+  };
+  if (!body.name || !body.category || !body.price) return showToast('Fill required fields', 'error');
+  try {
+    if (id) await api.put(`/api/products/${id}`, body);
+    else await api.post('/api/products', body);
+    showToast(id ? 'Product updated' : 'Product created', 'success');
+    closeProductModal();
+    loadProducts();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function deleteProduct(id) {
+  if (!confirm('Delete this product?')) return;
+  try {
+    await api.delete(`/api/products/${id}`);
+    showToast('Product deleted', 'success');
+    loadProducts();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// COUPON MODAL
+function openCouponModal() { document.getElementById('couponModal').classList.add('open'); }
+function closeCouponModal() { document.getElementById('couponModal').classList.remove('open'); }
+
+async function saveCoupon() {
+  const body = {
+    code: document.getElementById('cCode').value.toUpperCase().trim(),
+    type: document.getElementById('cType').value,
+    value: Number(document.getElementById('cValue').value),
+    maxDiscount: Number(document.getElementById('cMaxDisc').value) || undefined,
+    minOrder: Number(document.getElementById('cMinOrder').value) || 0,
+    usageLimit: Number(document.getElementById('cLimit').value) || 100,
+    validUntil: document.getElementById('cValidUntil').value,
+  };
+  if (!body.code || !body.value || !body.validUntil) return showToast('Fill required fields', 'error');
+  try {
+    await api.post('/api/coupons', body);
+    showToast('Coupon created!', 'success');
+    closeCouponModal();
+    loadCoupons();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// SEED
+async function seedDemoData() {
+  try {
+    const r = await api.post('/api/products/seed/demo');
+    showToast(r.message, 'success');
+    if (document.getElementById('tab-products').classList.contains('active')) loadProducts();
+    else loadOverview();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function seedDemoCoupons() {
+  try {
+    const r = await api.post('/api/coupons/seed/demo');
+    showToast(r.message, 'success');
+    loadCoupons();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+// Auth guard
+async function init() {
+  await loadUser();
+  if (!currentUser || currentUser.role !== 'admin') {
+    showToast('Admin access required', 'error');
+    setTimeout(() => window.location.href = '/login', 1500);
+    return;
+  }
+  loadOverview();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

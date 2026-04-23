@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Online Market — Premium Shopping</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <a href="/" class="navbar-brand">Online<span>Market</span></a>
+
+  <div class="navbar-center">
+    <div class="search-bar">
+      <button onclick="handleSearch()">🔍</button>
+      <input type="text" id="searchInput" placeholder="Search products..." onkeydown="if(event.key==='Enter') handleSearch()"/>
+    </div>
+  </div>
+
+  <div class="navbar-actions">
+    <div id="authNav" style="display:flex;gap:0.5rem;">
+      <a href="/login" class="nav-btn">Login</a>
+      <a href="/register" class="btn-primary">Sign Up</a>
+    </div>
+    <div id="userNav" style="display:none;align-items:center;gap:0.5rem;">
+      <a href="/profile" class="nav-btn">👋 <span id="navUserName"></span></a>
+      <a href="/orders" class="nav-btn">Orders</a>
+      <a href="/wishlist" class="nav-btn">♡</a>
+      <button class="nav-btn" onclick="logout()">Logout</button>
+    </div>
+    <a href="/cart" class="nav-btn" style="position:relative;">
+      🛒
+      <span class="badge" id="cartBadge" style="display:none;">0</span>
+    </a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-content">
+    <h1>Discover <em>Premium</em><br/>Products You'll Love</h1>
+    <p>Curated collection of the finest goods, delivered to your door.</p>
+    <div class="hero-actions">
+      <button class="btn-primary" onclick="document.getElementById('products-section').scrollIntoView({behavior:'smooth'})">Shop Now →</button>
+      <button class="btn-outline" onclick="seedProducts()">Load Demo Products</button>
+    </div>
+  </div>
+</section>
+
+<!-- FILTER BAR -->
+<div class="filter-bar" id="filterBar">
+  <span style="color:var(--text-muted);font-size:0.85rem;font-weight:500;">Filter:</span>
+  <button class="filter-chip active" onclick="filterCategory('all', this)">All</button>
+  <button class="filter-chip" onclick="filterCategory('Electronics', this)">Electronics</button>
+  <button class="filter-chip" onclick="filterCategory('Fashion', this)">Fashion</button>
+  <button class="filter-chip" onclick="filterCategory('Sports', this)">Sports</button>
+  <button class="filter-chip" onclick="filterCategory('Home & Living', this)">Home & Living</button>
+
+  <div style="margin-left:auto;display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+    <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;color:var(--text-muted);white-space:nowrap;">
+      ₹<input type="number" id="minPrice" placeholder="0" style="width:70px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:0.35rem 0.5rem;border-radius:6px;font-size:0.82rem;outline:none;" onchange="loadProducts(1)"/>
+      –
+      <input type="number" id="maxPrice" placeholder="Max" style="width:80px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:0.35rem 0.5rem;border-radius:6px;font-size:0.82rem;outline:none;" onchange="loadProducts(1)"/>
+    </label>
+    <select class="filter-select" onchange="changeSorting(this.value)">
+      <option value="">Sort: Newest</option>
+      <option value="price-asc">Price: Low → High</option>
+      <option value="price-desc">Price: High → Low</option>
+      <option value="rating">Top Rated</option>
+      <option value="popular">Most Popular</option>
+    </select>
+  </div>
+</div>
+
+<!-- PRODUCTS -->
+<div class="section" id="products-section">
+  <div class="section-header">
+    <h2 class="section-title" id="productsTitle">All Products</h2>
+    <span id="productCount" style="color:var(--text-muted);font-size:0.9rem;"></span>
+  </div>
+  <div class="product-grid" id="productsGrid">
+    <div class="spinner"></div>
+  </div>
+  <div id="pagination" style="display:flex;justify-content:center;gap:0.5rem;margin-top:2rem;"></div>
+</div>
+
+<footer>
+  <p>© 2026 <span>Online Market</span> — Premium Shopping Experience</p>
+</footer>
+
+<script src="/js/main.js"></script>
+<script>
+let currentCategory = 'all';
+let currentSort = '';
+let currentPage = 1;
+
+async function loadProducts(page = 1) {
+  currentPage = page;
+  const grid = document.getElementById('productsGrid');
+  grid.innerHTML = '<div class="spinner"></div>';
+
+  try {
+    const search = document.getElementById('searchInput').value;
+    const minPrice = document.getElementById('minPrice').value;
+    const maxPrice = document.getElementById('maxPrice').value;
+    let url = `/api/products?page=${page}&limit=12`;
+    if (currentCategory !== 'all') url += `&category=${encodeURIComponent(currentCategory)}`;
+    if (currentSort) url += `&sort=${currentSort}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+    if (minPrice) url += `&minPrice=${minPrice}`;
+    if (maxPrice) url += `&maxPrice=${maxPrice}`;
+
+    const data = await api.get(url);
+    document.getElementById('productCount').textContent = `${data.total} products`;
+
+    if (!data.products.length) {
+      grid.innerHTML = `<div class="empty-state" style="grid-coOnlinen:1/-1"><div class="empty-state-icon">📦</div><h3>No products found</h3><p>Try a different search or category.</p></div>`;
+      return;
+    }
+
+    grid.innerHTML = data.products.map(p => {
+      const disc = getDiscount(p.price, p.originalPrice);
+      return `
+        <div class="product-card" onclick="window.location.href='/product/${p._id}'">
+          ${disc ? `<span class="product-badge">-${disc}%</span>` : ''}
+          <img src="${p.image || 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=600'}" alt="${p.name}" class="product-img" onerror="this.src='https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=600'"/>
+          <div class="product-info">
+            <div class="product-category">${p.category}</div>
+            <div class="product-name">${p.name}</div>
+            <div class="product-rating">
+              <span class="stars">${renderStars(p.rating || 0)}</span>
+              ${p.rating ? p.rating.toFixed(1) : 'No reviews'} (${p.numReviews || 0})
+            </div>
+            <div class="product-price">
+              <span class="price-current">${formatPrice(p.price)}</span>
+              ${p.originalPrice ? `<span class="price-original">${formatPrice(p.originalPrice)}</span>` : ''}
+              ${disc ? `<span class="price-discount">${disc}% off</span>` : ''}
+            </div>
+          </div>
+          <div class="product-actions">
+            <button class="btn-cart" onclick="event.stopPropagation(); addToCart('${p._id}')">+ Add to Cart</button>
+            <button onclick="event.stopPropagation(); toggleWishlist('${p._id}', this)" style="background:var(--bg3);border:1px solid var(--border);color:var(--text-muted);cursor:pointer;padding:0.6rem 0.75rem;border-radius:8px;font-size:1rem;transition:all 0.2s;" title="Wishlist">♡</button>
+          </div>
+        </div>`;
+    }).join('');
+
+    // Pagination
+    const pag = document.getElementById('pagination');
+    if (data.pages > 1) {
+      pag.innerHTML = Array.from({length: data.pages}, (_, i) => i + 1).map(n =>
+        `<button onclick="loadProducts(${n})" style="padding:0.5rem 1rem;border-radius:8px;border:1px solid ${n===page?'var(--accent)':'var(--border)'};background:${n===page?'var(--accent)':'var(--bg3)'};color:${n===page?'#000':'var(--text)'};cursor:pointer;">${n}</button>`
+      ).join('');
+    } else pag.innerHTML = '';
+  } catch (err) {
+    grid.innerHTML = `<div class="empty-state" style="grid-coOnlinen:1/-1"><p style="color:var(--error)">${err.message}</p></div>`;
+  }
+}
+
+function filterCategory(cat, btn) {
+  currentCategory = cat;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('productsTitle').textContent = cat === 'all' ? 'All Products' : cat;
+  loadProducts(1);
+}
+
+function changeSorting(val) { currentSort = val; loadProducts(1); }
+
+function handleSearch() { loadProducts(1); }
+
+async function seedProducts() {
+  try {
+    const data = await api.post('/api/products/seed/demo');
+    showToast(data.message, 'success');
+    loadProducts(1);
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function toggleWishlist(productId, btn) {
+  if (!currentUser) { showToast('Please login to use wishlist', 'error'); return; }
+  try {
+    const res = await api.post(`/api/wishlist/toggle`, { productId });
+    btn.textContent = res.added ? '♥' : '♡';
+    btn.style.color = res.added ? 'var(--accent2)' : 'var(--text-muted)';
+    showToast(res.added ? 'Added to wishlist ♥' : 'Removed from wishlist', res.added ? 'success' : 'info');
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+loadProducts();
+</script>
+</body>
+</html>

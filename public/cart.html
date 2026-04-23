@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cart — Online Market</title>
+  <link rel="stylesheet" href="/public/css/style.css"/>
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/" class="navbar-brand">Online<span>Market</span></a>
+  <div class="navbar-center"><div class="search-bar"><button>🔍</button><input type="text" placeholder="Search..."/></div></div>
+  <div class="navbar-actions">
+    <div id="authNav" style="display:flex;gap:0.5rem;"><a href="/login" class="nav-btn">Login</a><a href="/register" class="btn-primary">Sign Up</a></div>
+    <div id="userNav" style="display:none;align-items:center;gap:0.5rem;"><span class="nav-btn">👋 <span id="navUserName"></span></span><a href="/orders" class="nav-btn">Orders</a><button class="nav-btn" onclick="logout()">Logout</button></div>
+    <a href="/cart" class="nav-btn active" style="position:relative;">🛒<span class="badge" id="cartBadge" style="display:none;">0</span></a>
+  </div>
+</nav>
+
+<div class="section">
+  <h2 class="section-title" style="margin-bottom:2rem;">Shopping Cart</h2>
+  <div id="cartContent"><div class="spinner"></div></div>
+</div>
+
+<!-- Checkout Modal -->
+<div id="checkoutModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:none;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:2rem;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;">
+    <h3 style="font-family:'Fraunces',serif;font-size:1.5rem;margin-bottom:1.5rem;">Shipping Details</h3>
+    <div class="form-group"><label class="form-label">Full Name</label><input type="text" id="fullName" class="form-input" placeholder="John Doe"/></div>
+    <div class="form-group"><label class="form-label">Address</label><input type="text" id="address" class="form-input" placeholder="123 Main Street"/></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">City</label><input type="text" id="city" class="form-input" placeholder="Mumbai"/></div>
+      <div class="form-group"><label class="form-label">State</label><input type="text" id="state" class="form-input" placeholder="Maharashtra"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">ZIP Code</label><input type="text" id="zipCode" class="form-input" placeholder="400001"/></div>
+      <div class="form-group"><label class="form-label">Phone</label><input type="text" id="phone" class="form-input" placeholder="+91 9876543210"/></div>
+    </div>
+    <div class="form-group"><label class="form-label">Payment Method</label>
+      <select id="paymentMethod" class="form-input">
+        <option value="COD">Cash on Delivery</option>
+        <option value="UPI">UPI</option>
+        <option value="Card">Credit/Debit Card</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:1rem;margin-top:1.5rem;">
+      <button class="btn-outline" onclick="closeCheckout()" style="flex:1;">Cancel</button>
+      <button class="btn-primary" onclick="placeOrder()" style="flex:2;">Place Order 🎉</button>
+    </div>
+  </div>
+</div>
+
+<footer><p>© 2025 <span>Online Market</span></p></footer>
+
+<script src="/js/main.js"></script>
+<script>
+let cartData = [];
+
+async function loadCart() {
+  if (!currentUser) {
+    document.getElementById('cartContent').innerHTML = `
+      <div class="empty-state"><div class="empty-state-icon">🔒</div><h3>Please Login</h3><p>Login to view your cart</p><a href="/login" class="btn-primary">Login</a></div>`;
+    return;
+  }
+  try {
+    cartData = await api.get('/api/cart');
+    renderCart();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+function renderCart() {
+  const container = document.getElementById('cartContent');
+  if (!cartData.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🛒</div><h3>Your cart is empty</h3><p>Add some products to get started</p><a href="/" class="btn-primary">Shop Now</a></div>`;
+    return;
+  }
+
+  const subtotal = cartData.reduce((s, i) => s + i.product.price * i.quantity, 0);
+  const shipping = subtotal > 5000 ? 0 : 99;
+  const tax = Math.round(subtotal * 0.18);
+  const total = subtotal + shipping + tax;
+
+  container.innerHTML = `
+    <div class="cart-grid">
+      <div>
+        ${cartData.map(item => `
+          <div class="cart-item">
+            <img src="${item.product.image || ''}" alt="${item.product.name}" onerror="this.src='https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200'"/>
+            <div class="cart-item-info">
+              <div class="cart-item-name">${item.product.name}</div>
+              <div style="color:var(--text-muted);font-size:0.8rem;margin-bottom:0.5rem;">${item.product.category}</div>
+              <div class="cart-item-price">${formatPrice(item.product.price)}</div>
+            </div>
+            <div style="display:flex;flex-direction:coOnlinen;align-items:flex-end;gap:0.75rem;">
+              <div class="qty-controls">
+                <button class="qty-btn" onclick="updateQty('${item.product._id}', ${item.quantity - 1})">−</button>
+                <span class="qty-num">${item.quantity}</span>
+                <button class="qty-btn" onclick="updateQty('${item.product._id}', ${item.quantity + 1})">+</button>
+              </div>
+              <div style="font-weight:700;color:var(--text);">${formatPrice(item.product.price * item.quantity)}</div>
+              <button onclick="removeItem('${item.product._id}')" style="background:none;border:none;cursor:pointer;color:var(--error);font-size:0.8rem;">Remove</button>
+            </div>
+          </div>`).join('')}
+      </div>
+      <div>
+        <div class="order-summary">
+          <div class="summary-title">Order Summary</div>
+          <div class="summary-row"><span>${cartData.length} item(s)</span><span>${formatPrice(subtotal)}</span></div>
+          <div class="summary-row"><span>Shipping</span><span>${shipping === 0 ? '<span style="color:var(--success)">FREE</span>' : formatPrice(shipping)}</span></div>
+          <div class="summary-row"><span>GST (18%)</span><span>${formatPrice(tax)}</span></div>
+          <div class="summary-row total"><span>Total</span><span class="price">${formatPrice(total)}</span></div>
+          ${subtotal < 5000 ? `<p style="color:var(--text-muted);font-size:0.8rem;margin:0.75rem 0;">Add ${formatPrice(5000-subtotal)} more for free shipping!</p>` : '<p style="color:var(--success);font-size:0.8rem;margin:0.75rem 0;">✓ You qualify for free shipping!</p>'}
+          <!-- Coupon -->
+      <div style="margin-bottom:1rem;">
+        <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.5rem;font-weight:600;">🎟️ Coupon Code</div>
+        <div style="display:flex;gap:0.5rem;">
+          <input type="text" id="couponInput" class="form-input" placeholder="Enter code..." style="flex:1;padding:0.5rem 0.75rem;font-size:0.85rem;text-transform:uppercase;"/>
+          <button onclick="applyCoupon()" class="btn-outline" style="padding:0.5rem 0.9rem;font-size:0.85rem;white-space:nowrap;">Apply</button>
+        </div>
+        <div id="couponMsg" style="margin-top:0.5rem;font-size:0.8rem;"></div>
+      </div>
+      <button class="btn-primary" style="width:100%;justify-content:center;padding:0.9rem;" onclick="openCheckout()">Proceed to Checkout →</button>
+          <a href="/" class="btn-outline" style="width:100%;justify-content:center;margin-top:0.75rem;">Continue Shopping</a>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function updateQty(productId, qty) {
+  try {
+    await api.put('/api/cart/update', { productId, quantity: qty });
+    cartData = await api.get('/api/cart');
+    renderCart();
+    updateCartBadge();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function removeItem(productId) {
+  try {
+    await api.delete(`/api/cart/remove/${productId}`);
+    cartData = await api.get('/api/cart');
+    renderCart();
+    updateCartBadge();
+    showToast('Item removed', 'info');
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+function openCheckout() {
+  document.getElementById('checkoutModal').style.display = 'flex';
+}
+
+function closeCheckout() {
+  document.getElementById('checkoutModal').style.display = 'none';
+}
+
+async function placeOrder() {
+  const shippingAddress = {
+    fullName: document.getElementById('fullName').value.trim(),
+    address: document.getElementById('address').value.trim(),
+    city: document.getElementById('city').value.trim(),
+    state: document.getElementById('state').value.trim(),
+    zipCode: document.getElementById('zipCode').value.trim(),
+    phone: document.getElementById('phone').value.trim(),
+    country: 'India'
+  };
+  if (!shippingAddress.fullName || !shippingAddress.address || !shippingAddress.city) {
+    return showToast('Please fill all required fields', 'error');
+  }
+  try {
+    const order = await api.post('/api/orders', { shippingAddress, paymentMethod: document.getElementById('paymentMethod').value, couponCode: appliedCouponCode });
+    showToast('Order placed successfully! 🎉', 'success');
+    closeCheckout();
+    setTimeout(() => window.location.href = '/orders', 1500);
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+let appliedCouponCode = null;
+let couponDiscount = 0;
+
+async function applyCoupon() {
+  const code = document.getElementById('couponInput').value.trim();
+  const msgEl = document.getElementById('couponMsg');
+  if (!code) return;
+  const subtotal = cartData.reduce((s,i) => s + i.product.price * i.quantity, 0);
+  try {
+    const r = await api.post('/api/coupons/validate', { code, subtotal });
+    appliedCouponCode = r.code;
+    couponDiscount = r.discount;
+    msgEl.innerHTML = '<span style="color:var(--success);">' + r.message + '</span>';
+    renderCart();
+  } catch(err) {
+    appliedCouponCode = null; couponDiscount = 0;
+    msgEl.innerHTML = '<span style="color:var(--error);">' + err.message + '</span>';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => loadUser().then(loadCart));
+</script>
+</body>
+</html>

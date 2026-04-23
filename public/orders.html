@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Orders — Online Market</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/" class="navbar-brand">Online<span>Market</span></a>
+  <div class="navbar-center"><div class="search-bar"><button>🔍</button><input type="text" placeholder="Search..."/></div></div>
+  <div class="navbar-actions">
+    <div id="authNav" style="display:flex;gap:0.5rem;"><a href="/login" class="nav-btn">Login</a><a href="/register" class="btn-primary">Sign Up</a></div>
+    <div id="userNav" style="display:none;align-items:center;gap:0.5rem;"><span class="nav-btn">👋 <span id="navUserName"></span></span><a href="/orders" class="nav-btn active">Orders</a><button class="nav-btn" onclick="logout()">Logout</button></div>
+    <a href="/cart" class="nav-btn" style="position:relative;">🛒<span class="badge" id="cartBadge" style="display:none;">0</span></a>
+  </div>
+</nav>
+
+<div class="section">
+  <div class="section-header"><h2 class="section-title">My Orders</h2></div>
+  <div id="ordersContent"><div class="spinner"></div></div>
+</div>
+
+<footer><p>© 2025 <span>Online Market</span></p></footer>
+
+<script src="/js/main.js"></script>
+<script>
+async function loadOrders() {
+  if (!currentUser) {
+    document.getElementById('ordersContent').innerHTML = `<div class="empty-state"><div class="empty-state-icon">🔒</div><h3>Please Login</h3><p>Login to view your orders</p><a href="/login" class="btn-primary">Login</a></div>`;
+    return;
+  }
+  try {
+    const orders = await api.get('/api/orders/my');
+    const container = document.getElementById('ordersContent');
+    if (!orders.length) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📦</div><h3>No orders yet</h3><p>Start shopping to see your orders here</p><a href="/" class="btn-primary">Shop Now</a></div>`;
+      return;
+    }
+
+    container.innerHTML = orders.map(order => `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1.25rem;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.25rem;">
+          <div>
+            <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.25rem;">Order ID</div>
+            <div style="font-family:monospace;font-size:0.9rem;color:var(--accent);">#${order._id.slice(-8).toUpperCase()}</div>
+          </div>
+          <div>
+            <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.25rem;">Date</div>
+            <div style="font-size:0.9rem;">${new Date(order.createdAt).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'numeric'})}</div>
+          </div>
+          <div>
+            <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.25rem;">Payment</div>
+            <div style="font-size:0.9rem;">${order.paymentMethod}</div>
+          </div>
+          <div>
+            <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.25rem;">Total</div>
+            <div style="font-family:'Fraunces',serif;font-size:1.1rem;font-weight:700;color:var(--accent);">${formatPrice(order.total)}</div>
+          </div>
+          <span class="status-badge status-${order.orderStatus}">${order.orderStatus}</span>
+        </div>
+
+        <div style="border-top:1px solid var(--border);padding-top:1.25rem;">
+          <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem;font-weight:600;">${order.items.length} item(s)</div>
+          <div style="display:flex;flex-wrap:wrap;gap:0.75rem;">
+            ${order.items.map(item => `
+              <div style="display:flex;align-items:center;gap:0.75rem;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:0.6rem 0.9rem;flex:1;min-width:200px;">
+                <img src="${item.image||''}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;" onerror="this.src='https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=100'"/>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:0.85rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.name}</div>
+                  <div style="font-size:0.8rem;color:var(--text-muted);">Qty: ${item.quantity} · ${formatPrice(item.price)}</div>
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>
+
+        <div style="border-top:1px solid var(--border);padding-top:1rem;margin-top:1rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+          <div style="font-size:0.85rem;color:var(--text-muted);">📍 ${order.shippingAddress.fullName}, ${order.shippingAddress.city}, ${order.shippingAddress.state}</div>
+          <div style="font-size:0.8rem;color:var(--text-muted);">
+            Subtotal: ${formatPrice(order.subtotal)} + Shipping: ${order.shippingCost === 0 ? 'FREE' : formatPrice(order.shippingCost)} + GST: ${formatPrice(order.tax)}
+          </div>
+        </div>
+      </div>`).join('');
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+document.addEventListener('DOMContentLoaded', () => loadUser().then(loadOrders));
+</script>
+</body>
+</html>
