@@ -56,7 +56,7 @@ function setRating(r) {
 }
 
 async function loadProduct() {
-  try {
+  try { 
     const p = await api.get(`/api/products/${productId}`);
     const disc = getDiscount(p.price, p.originalPrice);
 
